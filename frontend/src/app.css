@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Silkscreen', 'VT323', monospace;
+    background-color: #fef9c3; /* Retro gameboy/arcade cream-yellow */
+    color: #0f172a;
+    background-image: 
+      linear-gradient(to right, rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 16px 16px;
+    image-rendering: pixelated;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Press Start 2P', monospace;
+  }
+}
+
+/* Retro Pixel Box Styles */
+.pixel-container {
+  background-color: #ffffff;
+  border: 4px solid #000000;
+  box-shadow: 8px 8px 0px #000000;
+  border-radius: 0px;
+}
+
+.pixel-card {
+  background-color: #fef08a; /* Bright yellow accent */
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px #000000;
+  border-radius: 0px;
+}
+
+.pixel-card-cyan {
+  background-color: #cffafe;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px #000000;
+  border-radius: 0px;
+}
+
+.pixel-card-green {
+  background-color: #dcfce7;
+  border: 3px solid #000000;
+  box-shadow: 5px 5px 0px #000000;
+  border-radius: 0px;
+}
+
+.pixel-button {
+  background-color: #facc15;
+  border: 3px solid #000000;
+  box-shadow: 4px 4px 0px #000000;
+  color: #000000;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  border-radius: 0px;
+}
+
+.pixel-button:hover {
+  background-color: #fde047;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #000000;
+}
+
+.pixel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #000000;
+}
+
+.pixel-badge {
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  border-radius: 0px;
+}
+
+/* Retro Radar Sweep Animation */
+@keyframes pixel-radar-sweep {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-pixel-radar {
+  animation: pixel-radar-sweep 3s steps(12, end) infinite;
+}
+
+/* Blinking text effect */
+@keyframes retro-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: retro-blink 1s infinite;
+}

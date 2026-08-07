@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  pubfinder-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pubfinder-api
+    ports:
+      - "8080:8080"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    environment:
+      - CACHE_TTL_SECONDS=900
+      - OVERPASS_URL=https://overpass-api.de/api/interpreter
+    restart: unless-stopped
+    networks:
+      - pubfinder-net
+
+  pubfinder-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pubfinder-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      - pubfinder-api
+    restart: unless-stopped
+    networks:
+      - pubfinder-net
+
+networks:
+  pubfinder-net:
+    driver: bridge

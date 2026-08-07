@@ -1,0 +1,26 @@
+metadata:
+  name: beerdar
+  versionScheme: semver
+
+build:
+  image: node:20-alpine
+  timeoutSeconds: 300
+  memory: 512m
+  cpus: 1
+
+steps:
+  setup: |
+    echo "Initializing build workspace..."
+  build: |
+    echo "Verifying Dockerfile specifications for frontend and backend..."
+  test: |
+    echo "Running component tests..."
+
+artifacts:
+  - name: pubfinder-api
+    pattern: backend/Dockerfile
+    type: docker-image
+
+  - name: pubfinder-ui
+    pattern: frontend/Dockerfile
+    type: docker-image

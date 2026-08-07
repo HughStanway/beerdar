@@ -1,0 +1,55 @@
+version: 1
+
+deployment:
+  name: pubfinder-stack
+  description: "PubFinder 8-Bit Retro Arcade SPA and Location-Aware Ingress API"
+
+services:
+  pubfinder-api:
+    artifact: "pubfinder-api@latest"
+    type: "docker-image"
+    ports:
+      - "4001:8080"
+    environment:
+      CACHE_TTL_SECONDS: "900"
+      OVERPASS_URL: "https://overpass-api.de/api/interpreter"
+    healthCheck:
+      endpoint: "GET http://172.20.0.100:4001/health"
+      interval: "10s"
+      timeout: "5s"
+      retries: 3
+      unhealthyThreshold: 2
+    resources:
+      cpus: "0.5"
+      memory: "256m"
+
+  pubfinder-ui:
+    artifact: "pubfinder-ui@latest"
+    type: "docker-image"
+    ports:
+      - "4002:80"
+    depends_on:
+      - pubfinder-api
+    healthCheck:
+      endpoint: "GET http://172.20.0.100:4002/"
+      interval: "10s"
+      timeout: "5s"
+      retries: 3
+      unhealthyThreshold: 2
+    resources:
+      cpus: "0.25"
+      memory: "128m"
+
+networks:
+  default:
+    driver: bridge
+
+policies:
+  strategy: "rolling"
+  waitForHealthy: true
+  healthCheckTimeout: 60s
+
+rollback:
+  automatic: true
+  onFailure: true
+  keepPreviousVersions: 3
