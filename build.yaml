@@ -18,9 +18,9 @@ steps:
 
 artifacts:
   - name: pubfinder-api
-    pattern: backend
+    pattern: "backend/Dockerfile"
     type: docker-image
 
   - name: pubfinder-ui
-    pattern: frontend
+    pattern: "frontend/Dockerfile"
     type: docker-image
