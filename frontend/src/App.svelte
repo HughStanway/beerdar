@@ -137,7 +137,7 @@
 
   <main class="w-full flex-1 flex flex-col items-center justify-start">
     {#if loading}
-      <!-- Retro 8-Bit Arcade Loading Screen with Live Seconds Counter -->
+      <!-- Retro Arcade Loading Screen with Live Seconds Counter -->
       <div class="w-full pixel-container p-8 my-8 text-center flex flex-col items-center justify-center bg-white shadow-[6px_6px_0px_#000]">
         <div class="w-20 h-20 bg-amber-300 border-4 border-black flex items-center justify-center mb-6 shadow-[4px_4px_0px_#000]">
           <CompassIcon class="w-10 h-10 text-black animate-spin" />
@@ -212,6 +212,6 @@
 
   <!-- Retro Arcade Footer -->
   <footer class="w-full py-4 text-center text-[10px] font-heading text-black border-t-4 border-black mt-6 bg-white shadow-[4px_4px_0px_#000]">
-    <span>PUBFINDER 8-BIT RADAR • INSERT COIN TO CONTINUE</span>
+    <span>PUBFINDER BEER RADAR • AQUIRE GPS TO CONTINUE</span>
   </footer>
 </div>

@@ -14,9 +14,9 @@
     <div>
       <h1 class="text-sm sm:text-base font-heading font-black tracking-tighter text-black flex items-center gap-1.5">
         PUBFINDER
-        <span class="text-[9px] bg-black text-amber-300 px-1 py-0.5 font-mono uppercase">8-BIT RADAR</span>
+        <span class="text-[9px] bg-black text-amber-300 px-1 py-0.5 font-mono uppercase">BEER RADAR</span>
       </h1>
-      <p class="text-[10px] text-slate-700 font-mono font-bold">STATELESS SPA • PWA</p>
+      <p class="text-[10px] text-slate-700 font-mono font-bold">Locate the nearest pub</p>
     </div>
   </div>
 
@@ -25,7 +25,7 @@
     <!-- Live Status -->
     <div class="hidden sm:flex items-center gap-1 text-[10px] font-heading bg-emerald-200 text-black px-2 py-1 border-2 border-black">
       <span class="w-2 h-2 bg-emerald-600 rounded-none animate-ping inline-block"></span>
-      <span>P1 ONLINE</span>
+      <span>ONLINE</span>
     </div>
 
     <!-- Relocate Button -->
