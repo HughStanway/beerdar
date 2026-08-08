@@ -3,8 +3,8 @@ version: '3.8'
 services:
   pubfinder-api:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: pubfinder-api
     ports:
       - "8080:8080"
@@ -20,8 +20,8 @@ services:
 
   pubfinder-ui:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: pubfinder-ui
     ports:
       - "3000:80"
