@@ -55,7 +55,7 @@
   font-size: 11px;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.05s ease, box-shadow 0.05s ease;
+  transition: transform 0.05s ease, box-shadow 0.05s ease, background-color 0.05s ease;
   border-radius: 0px;
 }
 
@@ -68,6 +68,30 @@
 .pixel-button:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0px #000000;
+}
+
+.pixel-icon-button {
+  background-color: #fde047;
+  border: 2px solid #000000;
+  box-shadow: 2px 2px 0px #000000;
+  color: #000000;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.08s ease;
+  border-radius: 0px;
+}
+
+.pixel-icon-button:hover,
+.group:hover .pixel-icon-button {
+  background-color: #facc15;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #000000;
+}
+
+.pixel-icon-button:active,
+.group:active .pixel-icon-button {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #000000;
 }
 
 .pixel-badge {
