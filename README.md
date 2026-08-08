@@ -121,4 +121,4 @@ Queries OpenStreetMap for nearby pubs, bars, microbreweries, and taprooms.
 ---
 
 ## 📄 License
-Proprietary - Homelab use only
+Proprietary
