@@ -213,7 +213,7 @@
   <!-- Retro Arcade Footer -->
   <footer class="w-full max-w-xl mx-auto px-4 mt-8 mb-6">
     <div class="w-full py-3.5 px-4 text-center text-[10px] font-heading text-black border-4 border-black bg-white shadow-[4px_4px_0px_#000]">
-      <span>PUBFINDER BEER RADAR • ACQUIRE GPS TO CONTINUE</span>
+      <span>PUBFINDER BEER RADAR • Powered by Bigiron and Brewery</span>
     </div>
   </footer>
 </div>
