@@ -1,108 +1,101 @@
-# PubFinder Backend API Architecture & Design
+# PubFinder Backend API Architecture
 
-This document details the software architecture, design patterns, domain models, and developer workflows for the **PubFinder API** (`pubfinder-api`) backend service.
+This document describes the operational architecture, runtime data processing, spatial caching mechanisms, and integration pipelines of the **PubFinder API** backend service.
 
 ---
 
-## 🏛️ System Overview
+## 🛰️ Architecture & Lifecycle Overview
 
-The PubFinder Backend API is a high-performance, stateless location-aware venue ingress engine and OpenStreetMap proxy service. It ingests raw spatial data, filters out non-relevant establishments, normalizes physical addresses, calculates precise Haversine walking distances, and returns clean JSON payloads to the frontend SPA.
+The PubFinder Backend API functions as a stateless geospatial proxy and normalization service. It receives user WGS84 coordinates (latitude and longitude), queries external OpenStreetMap providers, filters non-relevant venues, normalizes spatial metadata, and returns sorted venue responses.
 
 ```mermaid
-flowchart TD
-    Client[SPA Client / Reverse Proxy] -->|GET /api/v1/nearest| Router[FastAPI Router]
-    Router -->|Depends| Service[VenueService]
-    Service -->|Lookup Cache| CacheRepo[SpatialLRUCacheRepository]
-    CacheRepo -- Cache Hit --> Service
-    CacheRepo -- Cache Miss --> ProviderChain[ProviderChain Strategy]
-    ProviderChain --> Primary[NominatimProvider]
-    Primary -- Timeout/Fallback --> Secondary[OverpassProvider]
-    Primary -- Raw Venues --> Service
-    Secondary -- Raw Venues --> Service
-    Service -->|Filter, Deduplicate & Sort| Response[NearestResponse JSON]
+sequenceDiagram
+    autonumber
+    actor Client as SPA Client
+    participant API as FastAPI Router
+    participant Service as VenueService
+    participant Cache as Spatial LRU Cache
+    participant Nominatim as OpenStreetMap Nominatim
+    participant Overpass as OpenStreetMap Overpass
+
+    Client->>API: GET /api/v1/nearest?lat={lat}&lon={lon}&limit={limit}&radius_m={radius}
+    API->>Service: get_nearest_venues(lat, lon, limit, radius)
+    Service->>Cache: get((round(lat,3), round(lon,3), radius))
+    
+    alt Cache Hit
+        Cache-->>Service: Return cached venue list
+    else Cache Miss
+        Service->>Nominatim: Query bounding box (pub, bar, brewery)
+        alt Nominatim Success
+            Nominatim-->>Service: Return raw JSON items
+        else Nominatim Empty / Timeout
+            Service->>Overpass: Query around radius (pub, bar, brewery)
+            Overpass-->>Service: Return Overpass node/way elements
+        end
+        Service->>Service: Filter disused/non-drinking, calculate Haversine & walking time, sort by distance
+        Service->>Cache: set(cache_key, processed_venues)
+    end
+    
+    Service-->>API: NearestResponse DTO
+    API-->>Client: 200 OK JSON (primary_venue & alternatives)
 ```
 
 ---
 
-## 🧩 Architectural Layers & Component Decomposition
+## ⚡ Core Subsystems & Technical Mechanics
 
-```
-backend/
-├── pyproject.toml              # Ruff, Mypy, & Pytest tool configuration
-├── Makefile                    # Developer CLI targets (lint, typecheck, format, test)
-├── requirements.txt            # Dependency specification
-├── main.py                     # Lean process entrypoint (args, logging, Uvicorn runner)
-├── app/
-│   ├── factory.py              # Application Factory (FastAPI, CORS, Lifespan context)
-│   ├── core/
-│   │   ├── config.py           # Pydantic BaseSettings (environment vars, defaults)
-│   │   └── logging.py          # Structured JSON & console logger configuration
-│   ├── schemas/                # Domain & API Data Transfer Objects (Strict Pydantic v2)
-│   │   ├── address.py          # Address schema
-│   │   ├── coordinates.py      # Coordinates schema
-│   │   ├── opening_status.py   # OpeningStatus schema
-│   │   ├── venue.py            # Venue schema
-│   │   └── response.py         # NearestResponse & HealthResponse schemas
-│   ├── providers/              # Strategy / Provider Pattern for External Data
-│   │   ├── base.py             # Abstract Base Class (BaseGeospatialProvider)
-│   │   ├── nominatim.py        # OpenStreetMap Nominatim Provider Implementation
-│   │   ├── overpass.py         # OpenStreetMap Overpass Provider Implementation
-│   │   └── chain.py            # Composite ProviderChain Strategy
-│   ├── cache/                  # Repository Pattern for Spatial Caching
-│   │   ├── base.py             # BaseCacheRepository Interface
-│   │   └── memory.py           # SpatialLRUCacheRepository (TTLCache)
-│   ├── services/               # Core Business Logic Layer
-│   │   ├── geo.py              # Pure Haversine distance & walking time math
-│   │   └── venue_service.py    # Venue ingestion, filtering, deduplication, & sorting
-│   └── api/                    # Presentation / Controller Layer
-│       ├── deps.py             # FastAPI Dependency Injection
-│       ├── router.py           # Main API router registration
-│       └── v1/endpoints/       # Endpoint handlers (/health, /api/v1/nearest)
-└── tests/                      # Pytest suite
-    ├── conftest.py             # Async client fixtures & mock providers
-    ├── test_geo.py             # Unit tests for Haversine math
-    ├── test_health.py          # Integration tests for /health
-    └── test_venues.py          # Integration tests for /api/v1/nearest
-```
+### 1. Request Lifecycle & Connection Pooling
+- **Application Lifespan**: On application startup (`lifespan` in `app/factory.py`), a single shared `httpx.AsyncClient` instance is initialized with configurable timeouts and HTTP keep-alive settings.
+- **Socket Reuse**: All outgoing HTTP requests to OpenStreetMap endpoints reuse pooled TCP connections, preventing socket exhaustion and lowering query latency.
+- **Graceful Shutdown**: On process termination, active sockets in the connection pool are drained and closed cleanly.
 
 ---
 
-## 🎨 Design Patterns & Engineering Principles
-
-### 1. Strategy Pattern (`app/providers/`)
-- **`BaseGeospatialProvider` (Abstract Base Class)**: Defines the common interface `async def fetch_venues(lat: float, lon: float, radius_m: int) -> list[RawVenueData]`.
-- **`NominatimProvider`**: Implements high-speed bounding-box search queries (~0.25s response time).
-- **`OverpassProvider`**: Implements secondary fallback queries for Overpass API nodes and ways.
-- **`ProviderChain`**: Executes sequential queries with automatic failover if the primary provider times out or returns empty results.
-- **Extensibility**: Adding new data sources (e.g. Mapbox, Google Places, custom GeoJSON) only requires subclassing `BaseGeospatialProvider` without altering business logic or API endpoints.
-
-### 2. Repository Pattern for Spatial Caching (`app/cache/`)
-- **`BaseCacheRepository` (Interface)**: Defines `get`, `set`, and `clear` cache operations.
-- **`SpatialLRUCacheRepository`**: Implements in-memory spatial grid caching (~100m coordinate rounding).
-- **Decoupling**: Swapping the in-memory cache for Redis or Memcached in production requires zero changes to business services.
-
-### 3. Domain Service Layer (`app/services/`)
-- **`GeoService`**: Contains pure mathematical calculations (Haversine distance, walking time estimations, Google Maps URL generation).
-- **`VenueService`**: Coordinates data fetching, enforces business rules (filtering disused or non-drinking establishments), formats addresses, deduplicates entries by OpenStreetMap element IDs, and sorts venues by proximity.
-
-### 4. Application Factory & Connection Pooling (`app/factory.py`)
-- **`create_app()`**: Factory function building the FastAPI application instance.
-- **Lifespan Context Manager**: Manages a single, shared `httpx.AsyncClient` connection pool across the application lifecycle to optimize socket reuse and lower latency.
-
-### 5. Dependency Injection (`app/api/deps.py`)
-- Endpoints inject services via FastAPI's `Depends()`, enabling straightforward unit testing with mock providers.
+### 2. Spatial Grid Rounding & LRU Caching
+- **Grid Resolution**: Coordinates are rounded to **3 decimal places** (`round(lat, 3)`, `round(lon, 3)`). At middle latitudes, 0.001 degrees corresponds to approximately **111 meters** North-South and **70–80 meters** East-West.
+- **Cache Key Schema**: Tuple hash `(rounded_lat, rounded_lon, radius_m)`. Nearby queries originating within the same ~100m grid cell share identical cache entries.
+- **Cache Policy**: An in-memory Least Recently Used (LRU) cache with Time-To-Live (TTL) invalidation (`SpatialLRUCacheRepository`). Stale cache entries expire automatically after `CACHE_TTL_SECONDS` (default: 900s / 15 minutes).
 
 ---
 
-## 🛠️ Developer Workflow & Quality Automation
+### 3. OpenStreetMap Ingress & Failover Pipeline
+- **Primary Search (Nominatim)**: Queries `nominatim.openstreetmap.org` using a calculated bounding box (`viewbox`) around the user's location ($\pm 0.035^\circ \approx 3.8\text{km}$). Queries `pub`, `bar`, and `brewery` amenities in parallel.
+- **Fallback Search (Overpass)**: If Nominatim returns no items or experiences network errors, the engine fails over to an Overpass API query (`node["amenity"="pub"]`, `node["amenity"="bar"]`, `node["craft"="brewery"]`).
+- **User-Agent Compliance**: Outgoing headers specify a descriptive `User-Agent` (`PubFinder/1.0 (...)`) to comply with OpenStreetMap Usage Policies.
 
-The repository includes a standardized `Makefile` and `pyproject.toml` configuration:
+---
 
-| Command | Description |
-| :--- | :--- |
-| `make install` | Create virtual environment `.venv` and install dependencies |
-| `make lint` | Run `ruff check .` linter |
-| `make format` | Auto-format codebase with `ruff format .` |
-| `make typecheck` | Run `mypy app main.py` static type verification |
-| `make test` | Run `pytest` test suite |
-| `make dev` | Launch local development server with auto-reload |
+### 4. Venue Filtering & Normalization Rules
+1. **Name Enforcement**: Venues without a valid `name` tag or displaying empty labels are discarded.
+2. **Category Filtering**: Excludes non-drinking establishments (e.g., `coffee`, `juice`, `milk`, `shisha`).
+3. **Operational Filtering**: Discards elements tagged with `disused=yes` or `abandoned=yes`.
+4. **Deduplication**: Tracks unique element IDs (`osm-node-{id}` or `osm-way-{id}`) to prevent duplicate entries when bounding boxes overlap.
+5. **Address Assembly**: Constructs structured physical addresses by combining `road`, `city`/`town`/`village`, and `postcode`.
+6. **Distance & Metric Calculations**:
+   - **Haversine Distance**: Computes great-circle spherical distance in meters between user coordinates and venue coordinates.
+   - **Walking Time**: Estimated at an average pace of $80\text{ meters/minute} \approx 4.8\text{ km/h}$, with a minimum lower bound of 1 minute (`ceil(distance / 80)`).
+   - **Navigation Link**: Generates direct Google Maps direction URLs (`https://www.google.com/maps/dir/?api=1&destination={lat},{lon}`).
+
+---
+
+### 5. Error Handling & Observability
+- **504 Gateway Timeout**: Raised if both Nominatim and Overpass fail to return venue data, signaling to the client SPA that external spatial providers are overloaded.
+- **422 Unprocessable Entity**: Raised automatically by Pydantic for out-of-range coordinates ($\text{lat} \notin [-90, 90]$ or $\text{lon} \notin [-180, 180]$).
+- **Structured Logging**: Outputs execution timings, spatial cache HIT/MISS events, and provider failover alerts in JSON or standard stream formats.
+
+---
+
+## ⚙️ Configuration Parameters
+
+Key runtime settings managed via environment variables:
+
+| Environment Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `HOST` | `0.0.0.0` | Server bind host address |
+| `PORT` | `8080` | Server bind port |
+| `NOMINATIM_URL` | `https://nominatim.openstreetmap.org/search` | OpenStreetMap Nominatim endpoint |
+| `OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | OpenStreetMap Overpass interpreter endpoint |
+| `HTTP_TIMEOUT_SECONDS` | `6.0` | Timeout threshold for external HTTP provider requests |
+| `CACHE_TTL_SECONDS` | `900` | In-memory spatial cache time-to-live (15 minutes) |
+| `CACHE_MAX_SIZE` | `1000` | Maximum number of cached spatial grid cells |
+| `JSON_LOGS` | `False` | Toggle structured JSON output vs human-readable logs |
