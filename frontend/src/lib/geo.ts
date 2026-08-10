@@ -48,7 +48,12 @@ export function normalizeAngle(degrees: number): number {
 }
 
 export function calculateShortestAngleDiff(current: number, target: number): number {
-  return ((target - current + 540) % 360) - 180;
+  const c = normalizeAngle(current);
+  const t = normalizeAngle(target);
+  let diff = t - c;
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  return diff;
 }
 
 export function computeRelativeBearing(targetBearing: number, deviceHeading: number): number {

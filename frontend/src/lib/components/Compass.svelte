@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { Radio, Zap } from '@lucide/svelte';
-  import { calculateShortestAngleDiff, formatDistance } from '../geo';
+  import { calculateShortestAngleDiff, normalizeAngle, formatDistance } from '../geo';
 
   export let bearing: number = 0; // Target bearing from user location to target pub (0..360)
   export let distanceMeters: number = 0;
@@ -25,7 +25,7 @@
     }
 
     if (heading !== null && !isNaN(heading)) {
-      targetHeading = heading;
+      targetHeading = normalizeAngle(heading);
       isSensorActive = true;
     }
   }
@@ -52,7 +52,7 @@
   function updateSmoothAnimation() {
     if (targetHeading !== null) {
       const diff = calculateShortestAngleDiff(currentDisplayHeading, targetHeading);
-      currentDisplayHeading += diff * 0.15; // Smooth exponential lerp
+      currentDisplayHeading = normalizeAngle(currentDisplayHeading + diff * 0.15);
     }
     animationFrameId = requestAnimationFrame(updateSmoothAnimation);
   }
@@ -83,12 +83,12 @@
 
   // Dial rotation: North always points to physical True North (-heading)
   $: dialRotation = isSensorActive && targetHeading !== null
-    ? -currentDisplayHeading
+    ? normalizeAngle(-currentDisplayHeading)
     : 0;
 
   // Needle rotation: Red tip points directly to target pub relative to phone top edge
   $: needleRotation = isSensorActive && targetHeading !== null
-    ? bearing - currentDisplayHeading
+    ? normalizeAngle(bearing - currentDisplayHeading)
     : bearing;
 </script>
 
