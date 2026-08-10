@@ -47,11 +47,10 @@ export function normalizeAngle(degrees: number): number {
   return ((degrees % 360) + 360) % 360;
 }
 
-export function computeRelativeBearing(targetBearing: number, deviceHeading: number): number {
-  return normalizeAngle(targetBearing - deviceHeading);
+export function calculateShortestAngleDiff(current: number, target: number): number {
+  return ((target - current + 540) % 360) - 180;
 }
 
-export function interpolateAngle(current: number, target: number, alpha: number = 0.2): number {
-  let diff = (target - current + 540) % 360 - 180;
-  return normalizeAngle(current + diff * alpha);
+export function computeRelativeBearing(targetBearing: number, deviceHeading: number): number {
+  return normalizeAngle(targetBearing - deviceHeading);
 }

@@ -6,7 +6,7 @@ import {
   formatDistance,
   normalizeAngle,
   computeRelativeBearing,
-  interpolateAngle
+  calculateShortestAngleDiff
 } from './geo';
 
 describe('Geospatial Math & Compass Tracking Utilities', () => {
@@ -41,20 +41,19 @@ describe('Geospatial Math & Compass Tracking Utilities', () => {
     expect(normalizeAngle(405)).toBe(45);
   });
 
+  it('should compute shortest angular difference without 360-degree wrapping jumps', () => {
+    // 355° to 5° -> shortest diff is +10°
+    expect(calculateShortestAngleDiff(355, 5)).toBe(10);
+    // 5° to 355° -> shortest diff is -10°
+    expect(calculateShortestAngleDiff(5, 355)).toBe(-10);
+    // 10° to 180° -> +170°
+    expect(calculateShortestAngleDiff(10, 180)).toBe(170);
+  });
+
   it('should compute relative bearing relative to device heading', () => {
     // Target is at 90° (East), phone pointing at 45° (NE) -> relative needle is 45°
     expect(computeRelativeBearing(90, 45)).toBe(45);
     // Target is at 45°, phone pointing at 90° -> relative needle is 315° (-45°)
     expect(computeRelativeBearing(45, 90)).toBe(315);
-  });
-
-  it('should smoothly interpolate angles across the 0/360 boundary', () => {
-    // Current 355°, target 5° -> diff +10° -> interpolated step
-    const step1 = interpolateAngle(355, 5, 0.5);
-    expect(step1).toBe(0);
-
-    // Current 5°, target 355° -> diff -10° -> interpolated step
-    const step2 = interpolateAngle(5, 355, 0.5);
-    expect(step2).toBe(0);
   });
 });

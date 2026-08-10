@@ -8,7 +8,7 @@ This document describes the design, mathematical algorithm, component architectu
 
 1. **Live Magnetometer / Gyroscope Orientation**:
    - Uses browser `DeviceOrientationEvent` APIs (`webkitCompassHeading` on iOS, `deviceorientationabsolute` / `alpha` on Android/Chrome) to track phone orientation in real time.
-   - Rotates the retro 8-bit cardinal ring ($N, E, S, W$) to align with True North and points the needle at the physical venue location relative to the top edge of the user's phone.
+   - Rotates the retro 8-bit cardinal ring ($N, E, S, W$) to align with True North ($\theta_{\text{dial}} = -H_{\text{device}}$) and points the red needle directly at the physical pub location ($\theta_{\text{needle}} = B_{\text{target}} - H_{\text{device}}$).
    - Includes iOS permission handling (`DeviceOrientationEvent.requestPermission()`).
 
 2. **Continuous Real-Time GPS Tracking**:
@@ -17,13 +17,13 @@ This document describes the design, mathematical algorithm, component architectu
 
 ---
 
-## 🧮 Mathematical Algorithm
+## 🧮 Mathematical Algorithm & Smooth Angle Tracking
 
 ```
 [ Target Venue ] (Absolute Bearing: B_target)
        ^
        |
-       |  Relative Needle Angle = (B_target - H_filtered + 360) % 360
+       |  Relative Needle Angle = B_target - H_filtered
        |
 [ Phone Top Edge ] (Device Heading: H_filtered)
 ```
@@ -36,19 +36,20 @@ $$B_{\text{target}} = (\theta \cdot \frac{180}{\pi} + 360) \pmod{360}$$
 
 ---
 
-### 2. Device Heading Low-Pass Filtering
-To prevent needle jitter from minor hand tremors, incoming headings ($H_{\text{raw}}$) pass through a shortest-path angular low-pass filter:
+### 2. Continuous Shortest-Path Angle Tracking
+To prevent $360^\circ \leftrightarrow 0^\circ$ wrap-around jump glitches when performing full 360-degree spins, incoming target headings ($H_{\text{raw}}$) are tracked using continuous shortest-path angular differences:
 
 $$\Delta H = ((H_{\text{raw}} - H_{\text{current}} + 540) \pmod{360}) - 180$$
-$$H_{\text{filtered}} = (H_{\text{current}} + \alpha \cdot \Delta H + 360) \pmod{360} \quad (\alpha = 0.2)$$
+$$H_{\text{current}} \leftarrow H_{\text{current}} + 0.15 \cdot \Delta H$$
+
+Because $H_{\text{current}}$ is updated continuously in scalar space without artificial $0..360$ resets during animation frames, CSS rotational transforms execute fluidly without reverse 360-degree spins.
 
 ---
 
-### 3. Display Rotations
+### 3. Sibling DOM Rotations
 
-- **Compass Dial Rotation**: $\theta_{\text{dial}} = -H_{\text{filtered}} \pmod{360}$
-- **Needle Rotation (Relative Mode)**: $\theta_{\text{needle}} = (B_{\text{target}} - H_{\text{filtered}} + 360) \pmod{360}$
-- **Needle Rotation (Static Fallback)**: $\theta_{\text{needle}} = B_{\text{target}}$
+- **Cardinal Dial Rotation**: $\theta_{\text{dial}} = -H_{\text{current}}$ (North always points to physical True North).
+- **Pub Pointer Needle (Red Arrow)**: $\theta_{\text{needle}} = B_{\text{target}} - H_{\text{current}}$ (Red tip points directly at target pub in real 3D space).
 
 ---
 
@@ -60,8 +61,8 @@ Frontend unit tests are implemented in `frontend/src/lib/geo.test.ts` using Vite
 - `calculateHaversineDistance`: Verifies spherical distance computation.
 - `calculateWalkingTimeMinutes`: Verifies walking time calculations based on an $80\text{m/min}$ pace.
 - `normalizeAngle`: Ensures degree wrapping in $0..360$.
+- `calculateShortestAngleDiff`: Verifies shortest-path angular difference computation across $0^\circ / 360^\circ$ boundaries.
 - `computeRelativeBearing`: Verifies relative needle angles relative to phone orientation.
-- `interpolateAngle`: Verifies smooth angular interpolation across the $0^\circ / 360^\circ$ boundary.
 
 Execute unit tests locally:
 ```bash
