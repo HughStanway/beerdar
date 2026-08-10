@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import type { NearestResponse } from './lib/types';
-  import { calculateBearing } from './lib/geo';
+  import { calculateBearing, calculateHaversineDistance, calculateWalkingTimeMinutes } from './lib/geo';
   import Navbar from './lib/components/Navbar.svelte';
   import Compass from './lib/components/Compass.svelte';
   import HeroCard from './lib/components/HeroCard.svelte';
@@ -16,6 +16,7 @@
   let bearing = 0;
   let loadingSeconds = 0;
   let timerInterval: any = null;
+  let watchId: number | null = null;
 
   // Preset locations
   const DEMO_PRESETS = [
@@ -36,6 +37,66 @@
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
+    }
+  }
+
+  function updateRealtimeMetrics(newLat: number, newLon: number) {
+    userLat = newLat;
+    userLon = newLon;
+
+    if (responseData && responseData.primary_venue) {
+      const p = responseData.primary_venue;
+      p.distance_meters = calculateHaversineDistance(
+        newLat,
+        newLon,
+        p.coordinates.latitude,
+        p.coordinates.longitude
+      );
+      p.walking_time_minutes = calculateWalkingTimeMinutes(p.distance_meters);
+      bearing = calculateBearing(
+        newLat,
+        newLon,
+        p.coordinates.latitude,
+        p.coordinates.longitude
+      );
+
+      if (responseData.alternatives) {
+        responseData.alternatives = responseData.alternatives.map((alt) => {
+          const dist = calculateHaversineDistance(
+            newLat,
+            newLon,
+            alt.coordinates.latitude,
+            alt.coordinates.longitude
+          );
+          return {
+            ...alt,
+            distance_meters: dist,
+            walking_time_minutes: calculateWalkingTimeMinutes(dist)
+          };
+        });
+      }
+    }
+  }
+
+  function startPositionWatch() {
+    if (watchId !== null) return;
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          updateRealtimeMetrics(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.warn('GPS watchPosition update warning:', err);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 2000 }
+      );
+    }
+  }
+
+  function stopPositionWatch() {
+    if (watchId !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
     }
   }
 
@@ -76,6 +137,8 @@
           data.primary_venue.coordinates.longitude
         );
       }
+
+      startPositionWatch();
     } catch (err: any) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
@@ -118,6 +181,7 @@
   }
 
   function loadPreset(lat: number, lon: number) {
+    stopPositionWatch();
     userLat = lat;
     userLon = lon;
     fetchNearest(lat, lon);
@@ -129,6 +193,7 @@
 
   onDestroy(() => {
     stopTimer();
+    stopPositionWatch();
   });
 </script>
 
