@@ -8,52 +8,50 @@ This document provides a high-level architectural summary of the entire **PubFin
 
 ```mermaid
 graph TD
-    subgraph Client Browser / Mobile Device
-        Browser[SPA PWA Interface]
-        Geo[Browser Geolocation API]
+    subgraph Client_Device ["Client Browser / Mobile Device"]
+        Browser["SPA Client Interface"]
+        Geo["Browser Geolocation API"]
         Browser -->|Acquire GPS| Geo
     end
 
-    subgraph Reverse Proxy & Frontend Container (pubfinder-ui)
-        Nginx[Nginx Alpine Web Server]
-        SPA[Svelte 4 / Tailwind SPA]
-        SW[PWA Service Worker]
-        Nginx -->|Serves Static Assets| SPA
-        SPA -->|Precache / Service Worker| SW
+    subgraph UI_Container ["Frontend Container (pubfinder-ui)"]
+        Nginx["Nginx Alpine Web Server"]
+        Assets["Static HTML / JS / CSS Assets"]
+        Nginx -->|Serves Static Files| Assets
     end
 
-    subgraph Backend Container (pubfinder-api)
-        FastAPI[Python FastAPI Server]
-        VenueService[Domain Venue Service]
-        Cache[Spatial LRU Cache Repository]
-        ProviderChain[ProviderChain Strategy]
+    subgraph API_Container ["Backend Container (pubfinder-api)"]
+        FastAPI["Python FastAPI Server"]
+        VenueService["Domain Venue Service"]
+        Cache["Spatial LRU Cache Repository"]
+        ProviderChain["ProviderChain Strategy"]
         
         FastAPI --> VenueService
         VenueService -->|Check ~100m Grid| Cache
         VenueService -->|Cache Miss| ProviderChain
     end
 
-    subgraph External OpenStreetMap Providers
-        Nominatim[Nominatim Spatial Engine]
-        Overpass[Overpass API Interpreter]
+    subgraph External_OSM ["External OpenStreetMap Providers"]
+        Nominatim["Nominatim Spatial Engine"]
+        Overpass["Overpass API Interpreter"]
         
-        ProviderChain -->|1. Primary Bounding Box Query| Nominatim
-        ProviderChain -->|2. Secondary Fallback Query| Overpass
+        ProviderChain -->|Primary Bounding Box Query| Nominatim
+        ProviderChain -->|Secondary Fallback Query| Overpass
     end
 
-    subgraph CI/CD & Deployment Engine (Brewery)
-        Brewery[Brewery CI/CD Pipeline]
-        BuildSpec[build.yaml]
-        DeploySpec[deployment.yaml]
+    subgraph Brewery_Engine ["CI/CD & Deployment Engine (Brewery)"]
+        Brewery["Brewery Engine"]
+        BuildSpec["build.yaml"]
+        DeploySpec["deployment.yaml"]
         
-        Brewery -->|Builds Container Images| BuildSpec
-        Brewery -->|Orchestrates Rolling Deployment| DeploySpec
-        DeploySpec -->|Health Check GET /health| FastAPI
+        BuildSpec -->|Build Config| Brewery
+        DeploySpec -->|Deployment Config| Brewery
+        Brewery -->|Health Check GET /health| FastAPI
     end
 
-    Browser -->|HTTP GET /| Nginx
-    SPA -->|API Requests GET /api/v1/nearest| Nginx
-    Nginx -->|Internal Proxy /api/ -> pubfinder-api:8080| FastAPI
+    Browser -->|1. HTTP GET /| Nginx
+    Browser -->|2. GET /api/v1/nearest| Nginx
+    Nginx -->|3. Proxy /api/ -> pubfinder-api:8080| FastAPI
 ```
 
 ---
